@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="g14" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c1420" />
+      <stop offset="55%" stop-color="#0e7490" />
+      <stop offset="100%" stop-color="#0c1420" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#g14)" />
+  <g>
+    <line x1="130" y1="530" x2="647" y2="98" stroke="#22d3ee" stroke-width="1" opacity="0.12" />
+    <circle cx="800" cy="487" r="157" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.11" />
+    <circle cx="443" cy="629" r="96" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.14" />
+    <rect x="190" y="45" width="169" height="169" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.24" transform="rotate(142 275 129)" />
+    <circle cx="1143" cy="207" r="34" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.13" />
+    <rect x="-83" y="-13" width="183" height="183" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.12" transform="rotate(348 9 79)" />
+    <circle cx="1034" cy="123" r="71" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.14" />
+    <circle cx="8" cy="592" r="47" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.16" />
+    <circle cx="546" cy="271" r="40" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.17" />
+  </g>
+  <circle cx="722" cy="491" r="3" fill="#22d3ee" opacity="0.9" />
+</svg>
