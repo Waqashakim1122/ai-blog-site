@@ -1,4 +1,12 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+for (const file of [".env.local", ".env"]) {
+  const path = resolve(process.cwd(), file);
+  if (existsSync(path)) loadEnv({ path });
+}
+
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import Author from "@/models/Author";
