@@ -11,6 +11,22 @@ export interface Heading {
   id: string;
 }
 
+// Both extractHeadings and TiptapContent do `(doc.content ?? []).map(...)`,
+// which silently produces an empty result for any doc that isn't actually
+// shaped like {type:"doc", content:[...]} — a raw HTML string, a bare
+// array of nodes missing the doc envelope, {}, null, etc. all just render
+// nothing with no error. That's indistinguishable from "no headings" or
+// "empty article" to a reader, so this check exists to tell the two apart
+// and log loudly instead of failing silently.
+export function isValidTiptapDoc(value: unknown): value is JSONContent {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Array.isArray((value as { content?: unknown }).content)
+  );
+}
+
 function slugifyHeadingText(text: string): string {
   return (
     text
@@ -22,6 +38,14 @@ function slugifyHeadingText(text: string): string {
 }
 
 export function extractHeadings(doc: JSONContent): Heading[] {
+  if (!isValidTiptapDoc(doc)) {
+    console.error(
+      "extractHeadings: received a value that isn't valid Tiptap JSON (expected {type:'doc', content:[...]}) — returning no headings instead of silently walking it.",
+      { receivedType: typeof doc, isArray: Array.isArray(doc) }
+    );
+    return [];
+  }
+
   const headings: Heading[] = [];
   const seen = new Map<string, number>();
 

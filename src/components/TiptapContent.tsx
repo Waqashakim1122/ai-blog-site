@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import type { JSONContent } from "@tiptap/core";
-import { extractHeadings } from "@/lib/headings";
+import { extractHeadings, isValidTiptapDoc } from "@/lib/headings";
 import { isSafeUrl } from "@/lib/safe-url";
 
 // Renders Tiptap JSON directly to React elements — no HTML string and no
@@ -50,6 +50,25 @@ function renderInline(node: JSONContent, key: number): ReactNode {
 }
 
 export function TiptapContent({ doc }: { doc: JSONContent }) {
+  if (!isValidTiptapDoc(doc)) {
+    // Previously this fell through to (doc.content ?? []).map(...) and
+    // rendered a silent, empty <div> — a blank article body with no error
+    // anywhere. Surface it instead: a clear server log line (visible in
+    // Vercel function logs) plus a visible reader-facing message rather
+    // than a page that looks broken with no indication why.
+    console.error(
+      "TiptapContent: received a value that isn't valid Tiptap JSON (expected {type:'doc', content:[...]}) — rendering a fallback instead of silently showing nothing.",
+      { receivedType: typeof doc, isArray: Array.isArray(doc) }
+    );
+    return (
+      <div className="prose-article">
+        <p className="text-muted">
+          This article&apos;s content couldn&apos;t be displayed. We&apos;ve been notified.
+        </p>
+      </div>
+    );
+  }
+
   const headings = extractHeadings(doc);
   const headingCursor = { index: 0 };
 
