@@ -16,7 +16,7 @@ export function PostCard({
     <article className="group h-full">
       <Link
         href={`/blog/${post.slug}`}
-        className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/30"
+        className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background transition-all duration-200 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/30"
       >
         <div className="relative aspect-[1200/630] w-full overflow-hidden bg-surface">
           <Image
@@ -30,7 +30,7 @@ export function PostCard({
         </div>
         <div className="flex flex-1 flex-col gap-2.5 p-5">
           {category && (
-            <span className="text-xs font-semibold uppercase tracking-wide text-accent">
+            <span className="w-fit rounded-full bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent">
               {category.name}
             </span>
           )}

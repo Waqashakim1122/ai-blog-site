@@ -1,6 +1,5 @@
 import type { PostListItem } from "@/types";
 import { PostCard } from "@/components/PostCard";
-import { FadeIn } from "@/components/FadeIn";
 
 export function PostGrid({ posts }: { posts: PostListItem[] }) {
   if (posts.length === 0) {
@@ -12,9 +11,7 @@ export function PostGrid({ posts }: { posts: PostListItem[] }) {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {posts.map((post, i) => (
-        <FadeIn key={post.id} delay={(i % 6) * 60}>
-          <PostCard post={post} priority={i < 3} />
-        </FadeIn>
+        <PostCard key={post.id} post={post} priority={i < 3} />
       ))}
     </div>
   );

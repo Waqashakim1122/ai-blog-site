@@ -10,7 +10,6 @@ import { countWords } from "@/lib/seo-checklist";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { JsonLd } from "@/components/JsonLd";
 import { PostGrid } from "@/components/PostGrid";
-import { FadeIn } from "@/components/FadeIn";
 import { getCategoryBySlug, SITE_NAME, SITE_URL } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 
@@ -136,7 +135,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             {category && (
               <Link
                 href={`/category/${category.slug}`}
-                className="text-xs font-semibold uppercase tracking-wide text-accent"
+                className="inline-block w-fit rounded-full bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent transition-colors hover:bg-accent/15"
               >
                 {category.name}
               </Link>
@@ -182,10 +181,10 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           )}
 
           {related.length > 0 && (
-            <FadeIn className="mt-16 lg:hidden">
+            <div className="mt-16 lg:hidden">
               <h2 className="mb-6 text-xl font-bold tracking-tight">Related articles</h2>
               <PostGrid posts={related} />
-            </FadeIn>
+            </div>
           )}
         </article>
 

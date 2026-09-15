@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getFeaturedPost, getPublishedPosts } from "@/lib/posts";
 import { PostGrid } from "@/components/PostGrid";
-import { FadeIn } from "@/components/FadeIn";
 import { CATEGORIES, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/constants";
 import { getCategoryBySlug } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
@@ -24,7 +23,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <section className="mb-14">
+      <section className="mb-16">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Latest in AI</h1>
         <p className="mt-2 max-w-2xl text-muted">
           Clear, original reporting on new AI models, developer tools, research, and the
@@ -33,7 +32,7 @@ export default async function HomePage() {
       </section>
 
       {featured && (
-        <section className="mb-16" aria-label="Featured post">
+        <section className="mb-20" aria-label="Featured post">
           <Link
             href={`/blog/${featured.slug}`}
             className="group grid grid-cols-1 gap-6 overflow-hidden rounded-2xl border border-border bg-background transition-shadow hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/30 lg:grid-cols-2"
@@ -50,7 +49,7 @@ export default async function HomePage() {
             </div>
             <div className="flex flex-col justify-center gap-4 p-6 sm:p-10">
               {category && (
-                <span className="w-fit text-xs font-semibold uppercase tracking-wide text-accent">
+                <span className="w-fit rounded-full bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent">
                   {category.name}
                 </span>
               )}
@@ -74,7 +73,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="mb-14">
+      <section className="mb-16">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted">
           Browse by category
         </h2>
@@ -92,14 +91,12 @@ export default async function HomePage() {
       </section>
 
       <section>
-        <FadeIn>
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight">Latest posts</h2>
-            <Link href="/blog" className="text-sm font-medium text-accent hover:underline">
-              View all →
-            </Link>
-          </div>
-        </FadeIn>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-xl font-bold tracking-tight">Latest posts</h2>
+          <Link href="/blog" className="text-sm font-medium text-accent hover:underline">
+            View all
+          </Link>
+        </div>
         <PostGrid posts={rest.slice(0, 9)} />
       </section>
     </div>

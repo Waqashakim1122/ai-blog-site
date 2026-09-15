@@ -52,7 +52,13 @@ function StatCard({
       >
         {label}
       </p>
-      <p className="mt-2 text-3xl font-bold tracking-tight">{value}</p>
+      <p
+        className={`mt-2 font-bold tracking-tight ${
+          highlighted ? "text-4xl" : "text-3xl"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
