@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 import type { JSONContent } from "@tiptap/core";
-import { previewPostContent } from "@/lib/actions/preview";
+import { TiptapContent } from "@/components/TiptapContent";
 import { countWords } from "@/lib/seo-checklist";
 import { getCategoryBySlug } from "@/lib/constants";
 
@@ -21,6 +20,11 @@ interface PostPreviewModalProps {
   authorName: string;
 }
 
+// Mirrors src/app/blog/[slug]/page.tsx's structure (column width, byline
+// treatment, closing author/date line) so the preview is an honest
+// approximation of the real page — same TiptapContent renderer too, so
+// there's no risk of the preview and the live page disagreeing on how a
+// given piece of content actually renders.
 export function PostPreviewModal({
   open,
   onClose,
@@ -33,21 +37,6 @@ export function PostPreviewModal({
   content,
   authorName,
 }: PostPreviewModalProps) {
-  const [html, setHtml] = useState("");
-  // Tracks which `content` the current `html` was rendered from, so
-  // "loading" is derived rather than a separate piece of state that would
-  // need setting synchronously at the top of the effect below.
-  const [renderedFor, setRenderedFor] = useState<JSONContent | null>(null);
-  const isLoading = open && renderedFor !== content;
-
-  useEffect(() => {
-    if (!open) return;
-    previewPostContent(content).then((result) => {
-      setHtml(result);
-      setRenderedFor(content);
-    });
-  }, [open, content]);
-
   if (!open) return null;
 
   const categoryInfo = getCategoryBySlug(category);
@@ -69,8 +58,8 @@ export function PostPreviewModal({
         </button>
       </div>
 
-      <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
-        <header className="mb-8">
+      <article className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
+        <header className="mb-6">
           {categoryInfo && (
             <span className="text-xs font-semibold uppercase tracking-wide text-accent">
               {categoryInfo.name}
@@ -81,17 +70,16 @@ export function PostPreviewModal({
           </h1>
           {excerpt && <p className="mt-4 text-lg text-muted">{excerpt}</p>}
 
-          <div className="mt-6 flex items-center gap-3 border-y border-border py-4 text-sm text-muted">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground"
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-surface text-[10px] font-medium"
               aria-hidden="true"
             >
               {authorName.charAt(0) || "?"}
-            </div>
-            <div>
-              <p className="font-medium text-foreground">{authorName}</p>
-              <p>{readingTime} min read</p>
-            </div>
+            </span>
+            <span>{authorName}</span>
+            <span aria-hidden="true">·</span>
+            <span>{readingTime} min read</span>
           </div>
         </header>
 
@@ -101,20 +89,20 @@ export function PostPreviewModal({
               src={coverImage}
               alt={coverImageAlt}
               fill
-              sizes="(min-width: 768px) 768px, 100vw"
+              sizes="(min-width: 768px) 672px, 100vw"
               className="object-cover"
             />
           </div>
         )}
 
-        {isLoading ? (
-          <p className="text-sm text-muted">Rendering preview…</p>
-        ) : (
-          <div className="prose-article" dangerouslySetInnerHTML={{ __html: html }} />
-        )}
+        <TiptapContent doc={content} />
+
+        <p className="mt-10 border-t border-border pt-6 text-xs text-muted">
+          Written by {authorName}
+        </p>
 
         {tags.length > 0 && (
-          <div className="mt-10 flex flex-wrap gap-2 border-t border-border pt-6">
+          <div className="mt-6 flex flex-wrap gap-2">
             {tags.map((tag) => (
               <span
                 key={tag}

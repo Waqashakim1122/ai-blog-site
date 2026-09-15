@@ -3,7 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllPublishedSlugs, getPostBySlug, getRelatedPosts } from "@/lib/posts";
-import { renderTiptapToSafeHtml, estimateReadingTime } from "@/lib/tiptap";
+import { TiptapContent } from "@/components/TiptapContent";
+import { TableOfContents } from "@/components/TableOfContents";
+import { extractHeadings } from "@/lib/headings";
+import { countWords } from "@/lib/seo-checklist";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { JsonLd } from "@/components/JsonLd";
 import { PostGrid } from "@/components/PostGrid";
@@ -60,8 +63,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   if (!post) notFound();
 
   const category = getCategoryBySlug(post.category);
-  const html = renderTiptapToSafeHtml(post.content);
-  const readingTime = estimateReadingTime(post.content);
+  const headings = extractHeadings(post.content);
+  const readingTime = Math.max(1, Math.round(countWords(post.content) / 225));
   const related = await getRelatedPosts(post, 3);
   const url = `${SITE_URL}/blog/${post.slug}`;
 
@@ -85,8 +88,38 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
   };
 
+  const byline = (
+    <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
+      {post.author.avatar ? (
+        <Image
+          src={post.author.avatar}
+          alt=""
+          width={20}
+          height={20}
+          className="rounded-full"
+        />
+      ) : (
+        <span
+          className="flex h-5 w-5 items-center justify-center rounded-full bg-surface text-[10px] font-medium"
+          aria-hidden="true"
+        >
+          {post.author.name.charAt(0)}
+        </span>
+      )}
+      <span>{post.author.name}</span>
+      {post.publishedAt && (
+        <>
+          <span aria-hidden="true">·</span>
+          <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+        </>
+      )}
+      <span aria-hidden="true">·</span>
+      <span>{readingTime} min read</span>
+    </div>
+  );
+
   return (
-    <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
       <JsonLd data={articleJsonLd} />
       <Breadcrumbs
         items={[
@@ -97,80 +130,97 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         ]}
       />
 
-      <header className="mb-8">
-        {category && (
-          <Link
-            href={`/category/${category.slug}`}
-            className="text-xs font-semibold uppercase tracking-wide text-accent"
-          >
-            {category.name}
-          </Link>
-        )}
-        <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-          {post.title}
-        </h1>
-        <p className="mt-4 text-lg text-muted">{post.excerpt}</p>
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,700px)_1fr] lg:gap-16">
+        <article className="min-w-0 max-w-2xl">
+          <header className="mb-6">
+            {category && (
+              <Link
+                href={`/category/${category.slug}`}
+                className="text-xs font-semibold uppercase tracking-wide text-accent"
+              >
+                {category.name}
+              </Link>
+            )}
+            <h1 className="mt-2 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+              {post.title}
+            </h1>
+            <p className="mt-4 text-lg text-muted">{post.excerpt}</p>
+            {byline}
+          </header>
 
-        <div className="mt-6 flex items-center gap-3 border-y border-border py-4 text-sm text-muted">
-          {post.author.avatar ? (
+          <TableOfContents headings={headings} variant="mobile" />
+
+          <div className="relative mb-10 aspect-[1200/630] w-full overflow-hidden rounded-xl bg-surface">
             <Image
-              src={post.author.avatar}
-              alt={post.author.name}
-              width={40}
-              height={40}
-              className="rounded-full"
+              src={post.coverImage}
+              alt={post.coverImageAlt}
+              fill
+              sizes="(min-width: 1024px) 700px, 100vw"
+              className="object-cover"
+              priority
             />
-          ) : (
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-foreground"
-              aria-hidden="true"
-            >
-              {post.author.name.charAt(0)}
+          </div>
+
+          <TiptapContent doc={post.content} />
+
+          <p className="mt-10 border-t border-border pt-6 text-xs text-muted">
+            Written by {post.author.name}
+            {post.publishedAt && <> · Published {formatDate(post.publishedAt)}</>}
+          </p>
+
+          {post.tags.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {post.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           )}
-          <div>
-            <p className="font-medium text-foreground">{post.author.name}</p>
-            <p>
-              {post.publishedAt && <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>}
-              {" · "}
-              {readingTime} min read
-            </p>
+
+          {related.length > 0 && (
+            <FadeIn className="mt-16 lg:hidden">
+              <h2 className="mb-6 text-xl font-bold tracking-tight">Related articles</h2>
+              <PostGrid posts={related} />
+            </FadeIn>
+          )}
+        </article>
+
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 flex flex-col gap-10">
+            <TableOfContents headings={headings} variant="desktop" />
+
+            {related.length > 0 && (
+              <div>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                  Related
+                </h2>
+                <div className="flex flex-col gap-4">
+                  {related.map((r) => (
+                    <Link key={r.id} href={`/blog/${r.slug}`} className="group flex gap-3">
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-surface">
+                        <Image
+                          src={r.coverImage}
+                          alt={r.coverImageAlt}
+                          fill
+                          sizes="64px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <p className="text-sm font-medium leading-snug transition-colors group-hover:text-accent">
+                        {r.title}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      </header>
-
-      <div className="relative mb-10 aspect-[1200/630] w-full overflow-hidden rounded-xl bg-surface">
-        <Image
-          src={post.coverImage}
-          alt={post.coverImageAlt}
-          fill
-          sizes="(min-width: 768px) 768px, 100vw"
-          className="object-cover"
-          priority
-        />
+        </aside>
       </div>
-
-      <div className="prose-article" dangerouslySetInnerHTML={{ __html: html }} />
-
-      {post.tags.length > 0 && (
-        <div className="mt-10 flex flex-wrap gap-2 border-t border-border pt-6">
-          {post.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {related.length > 0 && (
-        <FadeIn className="mt-16">
-          <h2 className="mb-6 text-xl font-bold tracking-tight">Related articles</h2>
-          <PostGrid posts={related} />
-        </FadeIn>
-      )}
-    </article>
+    </div>
   );
 }

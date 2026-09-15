@@ -28,7 +28,7 @@ export interface SeoChecklistResult {
   passes: boolean;
 }
 
-function extractText(node: JSONContent): string {
+export function extractText(node: JSONContent): string {
   const own = node.text ?? "";
   const children = (node.content ?? []).map(extractText).join(" ");
   return children ? `${own} ${children}` : own;
