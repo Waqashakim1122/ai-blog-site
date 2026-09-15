@@ -1,7 +1,7 @@
 import { connectToDatabase } from "@/lib/db";
 import Post from "@/models/Post";
 import "@/models/Author";
-import type { PostPlain, PostListItem, AuthorPlain } from "@/types";
+import type { PostPlain, PostListItem, AuthorPlain, PostStatus } from "@/types";
 import type { Types } from "mongoose";
 
 interface LeanAuthor {
@@ -26,8 +26,10 @@ interface LeanPost {
   author: LeanAuthor;
   metaTitle: string;
   metaDescription: string;
-  status: "draft" | "published";
+  status: PostStatus;
   publishedAt: Date | null;
+  publishedBy?: LeanAuthor | Types.ObjectId | null;
+  reviewNote?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +43,14 @@ function serializeAuthor(a: LeanAuthor): AuthorPlain {
     avatar: a.avatar || "",
     role: a.role,
   };
+}
+
+function serializePublishedBy(
+  p: LeanAuthor | Types.ObjectId | null | undefined
+): Pick<AuthorPlain, "id" | "name"> | null {
+  if (!p) return null;
+  if ("name" in p) return { id: p._id.toString(), name: p.name };
+  return null; // not populated — omit rather than show a raw id
 }
 
 function serializePost(p: LeanPost): PostPlain {
@@ -59,6 +69,8 @@ function serializePost(p: LeanPost): PostPlain {
     metaDescription: p.metaDescription,
     status: p.status,
     publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
+    publishedBy: serializePublishedBy(p.publishedBy),
+    reviewNote: p.reviewNote || "",
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };
@@ -112,13 +124,19 @@ export async function getPostBySlug(slug: string): Promise<PostPlain | null> {
 
 export async function getPostBySlugForAdmin(slug: string): Promise<PostPlain | null> {
   await connectToDatabase();
-  const doc = await Post.findOne({ slug }).populate("author").lean<LeanPost | null>();
+  const doc = await Post.findOne({ slug })
+    .populate("author")
+    .populate("publishedBy")
+    .lean<LeanPost | null>();
   return doc ? serializePost(doc) : null;
 }
 
 export async function getPostByIdForAdmin(id: string): Promise<PostPlain | null> {
   await connectToDatabase();
-  const doc = await Post.findById(id).populate("author").lean<LeanPost | null>();
+  const doc = await Post.findById(id)
+    .populate("author")
+    .populate("publishedBy")
+    .lean<LeanPost | null>();
   return doc ? serializePost(doc) : null;
 }
 

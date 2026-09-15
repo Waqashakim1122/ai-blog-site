@@ -7,11 +7,48 @@ import { connectToDatabase } from "@/lib/db";
 import Post from "@/models/Post";
 import { PostInputSchema } from "@/lib/validation";
 import { getCategoryBySlug } from "@/lib/constants";
+import { evaluateSeoChecklist } from "@/lib/seo-checklist";
+import type { PostStatus } from "@/types";
 
 export interface ActionResult {
   ok: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
+}
+
+/**
+ * Resolves what a save actually does to a post's status, given who's saving,
+ * what they asked for (the "draft"/"published" intent from the form), the
+ * post's current status, and whether it passes the SEO checklist gate.
+ *
+ * Rules (Phase 1):
+ * - "draft" intent always just saves as draft, for any role, no gate.
+ * - Admin "published" intent always publishes immediately, no exceptions.
+ * - Author "published" intent publishes only if the checklist passes;
+ *   otherwise it's routed to pending_review instead of publishing.
+ * - A stale reviewNote is cleared once a rejected post moves anywhere else.
+ */
+function resolveStatusOnSave(params: {
+  role: "admin" | "author";
+  requestedIntent: "draft" | "published";
+  currentStatus: PostStatus;
+  checklistPasses: boolean;
+}): { status: PostStatus; clearReviewNote: boolean } {
+  const { role, requestedIntent, currentStatus, checklistPasses } = params;
+
+  if (requestedIntent === "draft") {
+    return { status: "draft", clearReviewNote: currentStatus === "rejected" };
+  }
+
+  if (role === "admin") {
+    return { status: "published", clearReviewNote: true };
+  }
+
+  const nextStatus: PostStatus = checklistPasses ? "published" : "pending_review";
+  return {
+    status: nextStatus,
+    clearReviewNote: currentStatus === "rejected" || nextStatus === "published",
+  };
 }
 
 function parseTags(raw: string): string[] {
@@ -75,10 +112,24 @@ export async function createPost(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: "A post with this slug already exists.", fieldErrors: { slug: "Slug already in use" } };
   }
 
+  const checklistPasses =
+    parsed.data.status === "published"
+      ? evaluateSeoChecklist(parsed.data).passes
+      : true;
+
+  const { status } = resolveStatusOnSave({
+    role: session.user.role,
+    requestedIntent: parsed.data.status,
+    currentStatus: "draft",
+    checklistPasses,
+  });
+
   const doc = await Post.create({
     ...parsed.data,
     author: parsed.data.authorId,
-    publishedAt: parsed.data.status === "published" ? new Date() : null,
+    status,
+    publishedAt: status === "published" ? new Date() : null,
+    publishedBy: status === "published" ? session.user.id : null,
   });
 
   revalidatePath("/");
@@ -119,18 +170,29 @@ export async function updatePost(postId: string, formData: FormData): Promise<Ac
     return { ok: false, error: "A post with this slug already exists.", fieldErrors: { slug: "Slug already in use" } };
   }
 
-  const wasPublished = existingPost.status === "published";
-  const willBePublished = parsed.data.status === "published";
+  const currentStatus = existingPost.status;
+
+  const checklistPasses =
+    parsed.data.status === "published"
+      ? evaluateSeoChecklist(parsed.data).passes
+      : true;
+
+  const { status, clearReviewNote } = resolveStatusOnSave({
+    role: session.user.role,
+    requestedIntent: parsed.data.status,
+    currentStatus,
+    checklistPasses,
+  });
+
+  const enteringPublished = status === "published" && currentStatus !== "published";
 
   existingPost.set({
     ...parsed.data,
     author: parsed.data.authorId,
-    publishedAt:
-      willBePublished && !wasPublished
-        ? new Date()
-        : willBePublished
-        ? existingPost.publishedAt || new Date()
-        : existingPost.publishedAt,
+    status,
+    publishedAt: enteringPublished ? new Date() : existingPost.publishedAt,
+    publishedBy: enteringPublished ? session.user.id : existingPost.publishedBy,
+    reviewNote: clearReviewNote ? "" : existingPost.reviewNote,
   });
 
   await existingPost.save();
@@ -138,6 +200,62 @@ export async function updatePost(postId: string, formData: FormData): Promise<Ac
   revalidatePath("/");
   revalidatePath("/blog");
   revalidatePath(`/blog/${parsed.data.slug}`);
+  revalidatePath("/admin/dashboard");
+
+  return { ok: true };
+}
+
+export async function approvePost(postId: string): Promise<ActionResult> {
+  const session = await requireSession();
+  if (session.user.role !== "admin") {
+    return { ok: false, error: "Only admins can approve posts." };
+  }
+
+  await connectToDatabase();
+  const existingPost = await Post.findById(postId);
+  if (!existingPost) return { ok: false, error: "Post not found." };
+  if (existingPost.status !== "pending_review") {
+    return { ok: false, error: "This post isn't awaiting review." };
+  }
+
+  existingPost.set({
+    status: "published",
+    publishedAt: new Date(),
+    publishedBy: session.user.id,
+    reviewNote: "",
+  });
+  await existingPost.save();
+
+  revalidatePath("/");
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${existingPost.slug}`);
+  revalidatePath("/admin/dashboard");
+
+  return { ok: true };
+}
+
+export async function rejectPost(postId: string, reviewNote: string): Promise<ActionResult> {
+  const session = await requireSession();
+  if (session.user.role !== "admin") {
+    return { ok: false, error: "Only admins can reject posts." };
+  }
+
+  const trimmedNote = reviewNote.trim();
+  if (!trimmedNote) {
+    return { ok: false, error: "Add a note explaining what needs to change." };
+  }
+
+  await connectToDatabase();
+  const existingPost = await Post.findById(postId);
+  if (!existingPost) return { ok: false, error: "Post not found." };
+  if (existingPost.status !== "pending_review") {
+    return { ok: false, error: "This post isn't awaiting review." };
+  }
+
+  existingPost.status = "rejected";
+  existingPost.reviewNote = trimmedNote;
+  await existingPost.save();
+
   revalidatePath("/admin/dashboard");
 
   return { ok: true };

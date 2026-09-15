@@ -8,9 +8,19 @@ import { previewMarkdown } from "@/lib/actions/markdown";
 import { CATEGORIES } from "@/lib/constants";
 import { slugify } from "@/lib/slug";
 import { coverImageForSlug } from "@/lib/covers";
-import type { AuthorPlain, PostPlain } from "@/types";
+import { evaluateSeoChecklist } from "@/lib/seo-checklist";
+import { formatDate } from "@/lib/format";
+import { ReviewActions } from "@/components/admin/ReviewActions";
+import type { AuthorPlain, PostPlain, PostStatus } from "@/types";
 
 const COVER_OPTIONS = Array.from({ length: 15 }, (_, i) => `/images/covers/cover-${i + 1}.svg`);
+
+const STATUS_LABELS: Record<PostStatus, string> = {
+  draft: "Draft",
+  pending_review: "Pending review",
+  published: "Published",
+  rejected: "Rejected",
+};
 
 interface PostFormProps {
   mode: "create" | "edit";
@@ -64,8 +74,63 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
 
   const fieldError = (name: string) => state?.fieldErrors?.[name];
 
+  // Failed checklist items for a post currently sitting in pending_review —
+  // recomputed live from the saved post rather than stored, so it always
+  // reflects the post's current content (Phase 1: "so admin can see exactly
+  // why it was held back").
+  const failedChecklistItems =
+    post && (post.status === "pending_review" || post.status === "rejected")
+      ? evaluateSeoChecklist(post).items.filter((i) => !i.passed)
+      : [];
+
   return (
-    <form action={formAction} className="flex flex-col gap-8">
+    <>
+      {post?.status === "pending_review" && (
+        <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+            Pending review
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            This post didn&apos;t pass the SEO checklist, so it was submitted for review instead
+            of publishing.
+          </p>
+          {failedChecklistItems.length > 0 && (
+            <ul className="mt-2 list-disc pl-5 text-sm text-muted">
+              {failedChecklistItems.map((item) => (
+                <li key={item.id}>{item.label}</li>
+              ))}
+            </ul>
+          )}
+          {currentUser.role === "admin" && (
+            <div className="mt-4">
+              <ReviewActions postId={post.id} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {post?.status === "rejected" && (
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/5 p-4">
+          <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+            This post needs changes
+          </p>
+          {post.reviewNote && <p className="mt-1 text-sm text-foreground">{post.reviewNote}</p>}
+          {failedChecklistItems.length > 0 && (
+            <>
+              <p className="mt-3 text-xs font-medium text-muted">
+                It also didn&apos;t pass these checklist items:
+              </p>
+              <ul className="mt-1 list-disc pl-5 text-sm text-muted">
+                {failedChecklistItems.map((item) => (
+                  <li key={item.id}>{item.label}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
+      <form action={formAction} className="flex flex-col gap-8">
       {state?.error && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           {state.error}
@@ -179,18 +244,36 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
           <div className="rounded-lg border border-border p-4">
             <h2 className="mb-3 text-sm font-semibold">Publish</h2>
 
+            {post && (
+              <p className="mb-3 text-xs text-muted">
+                Currently: <span className="font-medium text-foreground">{STATUS_LABELS[post.status]}</span>
+              </p>
+            )}
+
             <label htmlFor="status" className="mb-1.5 block text-xs font-medium text-muted">
-              Status
+              When you save, set this post to
             </label>
             <select
               id="status"
               name="status"
-              defaultValue={post?.status || "draft"}
-              className="mb-4 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+              defaultValue={post?.status === "published" ? "published" : "draft"}
+              className="mb-2 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
             >
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
+              <option value="draft">Draft (just save)</option>
+              <option value="published">Publish</option>
             </select>
+
+            {currentUser.role === "author" && (
+              <p className="mb-4 text-xs text-muted">
+                Publishing only goes live immediately if it passes the SEO checklist below;
+                otherwise it&apos;s sent to an admin for review.
+              </p>
+            )}
+            {currentUser.role === "admin" && (
+              <p className="mb-4 text-xs text-muted">
+                As an admin, Publish always goes live immediately.
+              </p>
+            )}
 
             <button
               type="submit"
@@ -199,6 +282,12 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
             >
               {isPending ? "Saving…" : mode === "create" ? "Create post" : "Save changes"}
             </button>
+
+            {post?.status === "published" && post.publishedBy && post.publishedAt && (
+              <p className="mt-3 text-xs text-muted">
+                Published by {post.publishedBy.name} on {formatDate(post.publishedAt)}
+              </p>
+            )}
           </div>
 
           <div className="rounded-lg border border-border p-4">
@@ -373,6 +462,7 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
           </div>
         </div>
       </section>
-    </form>
+      </form>
+    </>
   );
 }

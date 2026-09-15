@@ -5,12 +5,27 @@ import { getAllPostsForAdmin } from "@/lib/posts";
 import { getCategoryBySlug } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import { DeletePostButton } from "@/components/admin/DeletePostButton";
+import type { PostStatus } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Dashboard",
   robots: { index: false, follow: false },
+};
+
+const STATUS_BADGE_CLASSES: Record<PostStatus, string> = {
+  draft: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  pending_review: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  published: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  rejected: "bg-red-500/15 text-red-600 dark:text-red-400",
+};
+
+const STATUS_LABELS: Record<PostStatus, string> = {
+  draft: "Draft",
+  pending_review: "Pending review",
+  published: "Published",
+  rejected: "Rejected",
 };
 
 export default async function AdminDashboardPage() {
@@ -61,13 +76,9 @@ export default async function AdminDashboardPage() {
                     <td className="max-w-[280px] truncate px-4 py-3 font-medium">{post.title}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          post.status === "published"
-                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                        }`}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[post.status]}`}
                       >
-                        {post.status}
+                        {STATUS_LABELS[post.status]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted">{category?.name || post.category}</td>

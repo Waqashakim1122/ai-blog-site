@@ -16,8 +16,15 @@ const PostSchema = new Schema(
     author: { type: Schema.Types.ObjectId, ref: "Author", required: true },
     metaTitle: { type: String, required: true },
     metaDescription: { type: String, required: true },
-    status: { type: String, enum: ["draft", "published"], default: "draft", index: true },
+    status: {
+      type: String,
+      enum: ["draft", "pending_review", "published", "rejected"],
+      default: "draft",
+      index: true,
+    },
     publishedAt: { type: Date, default: null },
+    publishedBy: { type: Schema.Types.ObjectId, ref: "Author", default: null },
+    reviewNote: { type: String, default: "" },
   },
   { timestamps: true }
 );
