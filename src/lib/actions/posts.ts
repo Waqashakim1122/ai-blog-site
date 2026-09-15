@@ -18,26 +18,29 @@ export interface ActionResult {
 
 /**
  * Resolves what a save actually does to a post's status, given who's saving,
- * what they asked for (the "draft"/"published" intent from the form), the
- * post's current status, and whether it passes the SEO checklist gate.
+ * what they asked for (the "draft"/"published" intent from the form), and
+ * whether it passes the SEO checklist gate.
  *
  * Rules (Phase 1):
- * - "draft" intent always just saves as draft, for any role, no gate.
+ * - "draft" intent always just saves as draft, for any role, no gate, and
+ *   never touches reviewNote — a draft save (including Phase 3b's future
+ *   autosave) is not the author "acting on" rejection feedback, so it must
+ *   not silently wipe it before they've even read it.
  * - Admin "published" intent always publishes immediately, no exceptions.
  * - Author "published" intent publishes only if the checklist passes;
  *   otherwise it's routed to pending_review instead of publishing.
- * - A stale reviewNote is cleared once a rejected post moves anywhere else.
+ * - reviewNote only clears on an explicit "published" intent (a real
+ *   resubmission click), regardless of the outcome of that attempt.
  */
 function resolveStatusOnSave(params: {
   role: "admin" | "author";
   requestedIntent: "draft" | "published";
-  currentStatus: PostStatus;
   checklistPasses: boolean;
 }): { status: PostStatus; clearReviewNote: boolean } {
-  const { role, requestedIntent, currentStatus, checklistPasses } = params;
+  const { role, requestedIntent, checklistPasses } = params;
 
   if (requestedIntent === "draft") {
-    return { status: "draft", clearReviewNote: currentStatus === "rejected" };
+    return { status: "draft", clearReviewNote: false };
   }
 
   if (role === "admin") {
@@ -45,10 +48,7 @@ function resolveStatusOnSave(params: {
   }
 
   const nextStatus: PostStatus = checklistPasses ? "published" : "pending_review";
-  return {
-    status: nextStatus,
-    clearReviewNote: currentStatus === "rejected" || nextStatus === "published",
-  };
+  return { status: nextStatus, clearReviewNote: true };
 }
 
 function parseTags(raw: string): string[] {
@@ -120,7 +120,6 @@ export async function createPost(formData: FormData): Promise<ActionResult> {
   const { status } = resolveStatusOnSave({
     role: session.user.role,
     requestedIntent: parsed.data.status,
-    currentStatus: "draft",
     checklistPasses,
   });
 
@@ -180,7 +179,6 @@ export async function updatePost(postId: string, formData: FormData): Promise<Ac
   const { status, clearReviewNote } = resolveStatusOnSave({
     role: session.user.role,
     requestedIntent: parsed.data.status,
-    currentStatus,
     checklistPasses,
   });
 
