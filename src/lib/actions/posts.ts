@@ -14,6 +14,28 @@ export interface ActionResult {
   ok: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
+  /** The slug actually saved — differs from what was submitted when a
+   *  collision forced a `-2`, `-3`, ... suffix (see resolveUniqueSlug). */
+  resolvedSlug?: string;
+}
+
+/**
+ * Finds a free slug starting from `baseSlug`, appending -2, -3, ... on
+ * collision, rather than failing the save outright. `excludePostId` lets an
+ * update ignore the post's own current slug (not a real collision).
+ */
+async function resolveUniqueSlug(baseSlug: string, excludePostId?: string): Promise<string> {
+  let candidate = baseSlug;
+  let attempt = 2;
+
+  while (true) {
+    const existing = await Post.findOne({ slug: candidate }).select("_id").lean();
+    if (!existing || (excludePostId && existing._id.toString() === excludePostId)) {
+      return candidate;
+    }
+    candidate = `${baseSlug}-${attempt}`;
+    attempt += 1;
+  }
 }
 
 /**
@@ -113,10 +135,7 @@ export async function createPost(formData: FormData): Promise<ActionResult> {
 
   await connectToDatabase();
 
-  const existing = await Post.findOne({ slug: parsed.data.slug }).lean();
-  if (existing) {
-    return { ok: false, error: "A post with this slug already exists.", fieldErrors: { slug: "Slug already in use" } };
-  }
+  const finalSlug = await resolveUniqueSlug(parsed.data.slug);
 
   const checklistPasses =
     parsed.data.status === "published"
@@ -132,6 +151,7 @@ export async function createPost(formData: FormData): Promise<ActionResult> {
 
   const doc = await Post.create({
     ...parsed.data,
+    slug: finalSlug,
     author: parsed.data.authorId,
     status,
     publishedAt: status === "published" ? new Date() : null,
@@ -171,10 +191,7 @@ export async function updatePost(postId: string, formData: FormData): Promise<Ac
     return { ok: false, error: "Please fix the errors below.", fieldErrors };
   }
 
-  const slugOwner = await Post.findOne({ slug: parsed.data.slug }).lean();
-  if (slugOwner && slugOwner._id.toString() !== postId) {
-    return { ok: false, error: "A post with this slug already exists.", fieldErrors: { slug: "Slug already in use" } };
-  }
+  const finalSlug = await resolveUniqueSlug(parsed.data.slug, postId);
 
   const currentStatus = existingPost.status;
 
@@ -194,6 +211,7 @@ export async function updatePost(postId: string, formData: FormData): Promise<Ac
 
   existingPost.set({
     ...parsed.data,
+    slug: finalSlug,
     author: parsed.data.authorId,
     status,
     publishedAt: enteringPublished ? new Date() : existingPost.publishedAt,
@@ -205,10 +223,10 @@ export async function updatePost(postId: string, formData: FormData): Promise<Ac
 
   revalidatePath("/");
   revalidatePath("/blog");
-  revalidatePath(`/blog/${parsed.data.slug}`);
+  revalidatePath(`/blog/${finalSlug}`);
   revalidatePath("/admin/dashboard");
 
-  return { ok: true };
+  return { ok: true, resolvedSlug: finalSlug };
 }
 
 export async function approvePost(postId: string): Promise<ActionResult> {

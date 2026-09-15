@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { JSONContent } from "@tiptap/core";
@@ -14,7 +14,10 @@ import { uploadImage } from "@/lib/upload";
 import { ReviewActions } from "@/components/admin/ReviewActions";
 import { SeoChecklistPanel } from "@/components/admin/SeoChecklistPanel";
 import { TiptapEditor } from "@/components/admin/TiptapEditor";
+import { PostPreviewModal } from "@/components/admin/PostPreviewModal";
 import type { AuthorPlain, PostPlain, PostStatus } from "@/types";
+
+const AUTOSAVE_INTERVAL_MS = 20_000;
 
 const COVER_OPTIONS = Array.from({ length: 15 }, (_, i) => `/images/covers/cover-${i + 1}.svg`);
 
@@ -34,6 +37,13 @@ interface PostFormProps {
   currentUser: { id: string; role: "admin" | "author" };
 }
 
+function parseTagsClient(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
   const router = useRouter();
   const [title, setTitle] = useState(post?.title || "");
@@ -46,16 +56,70 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
   const [content, setContent] = useState<JSONContent>(post?.content || EMPTY_DOC);
   const [isCoverUploading, setIsCoverUploading] = useState(false);
   const [coverUploadError, setCoverUploadError] = useState("");
+  const [slugNotice, setSlugNotice] = useState("");
   const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Snapshot of every field's value as of the last successful save (manual
+  // or autosaved) — compared against the live DOM form to decide whether
+  // there's anything worth autosaving or warning about on navigation.
+  // Reading straight from the DOM (rather than mirroring every field into
+  // React state) also covers the uncontrolled inputs (excerpt, category,
+  // tags, authorId) without converting them.
+  const lastSavedSnapshotRef = useRef<string>("");
+  const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle"
+  );
+  const [isAutosaving, startAutosaveTransition] = useTransition();
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewFields, setPreviewFields] = useState({ excerpt: "", category: "", tags: [] as string[] });
+
+  function getFormSnapshot(): string {
+    if (!formRef.current) return "";
+    const fd = new FormData(formRef.current);
+    const obj: Record<string, string> = {};
+    for (const [key, value] of fd.entries()) {
+      if (typeof value === "string") obj[key] = value;
+    }
+    return JSON.stringify(obj);
+  }
+
+  // Baseline snapshot once the form has actually mounted.
+  useEffect(() => {
+    lastSavedSnapshotRef.current = getFormSnapshot();
+  }, []);
+
+  // Unsaved-changes warning: covers tab close, refresh, and typing a new
+  // URL. Re-reads the DOM fresh at the moment of navigation rather than a
+  // stale piece of state, so it's always accurate.
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (getFormSnapshot() !== lastSavedSnapshotRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   const action = async (
     _prevState: ActionResult | undefined,
     formData: FormData
   ): Promise<ActionResult> => {
+    const snapshotBeforeSave = getFormSnapshot();
     const result =
       mode === "create" ? await createPost(formData) : await updatePost(post!.id, formData);
-    if (result.ok && mode === "edit") {
-      router.refresh();
+
+    if (result.ok) {
+      lastSavedSnapshotRef.current = snapshotBeforeSave;
+      if (result.resolvedSlug && result.resolvedSlug !== slug) {
+        setSlug(result.resolvedSlug);
+        setSlugNotice(`The slug "${slug}" was already taken — used "${result.resolvedSlug}" instead.`);
+      } else {
+        setSlugNotice("");
+      }
+      if (mode === "edit") router.refresh();
     }
     return result;
   };
@@ -64,6 +128,37 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
     action,
     undefined
   );
+
+  // Autosave: edit mode only (never implicitly creates a post), always as
+  // a draft update regardless of the Publish/Draft selector — autosave
+  // must never trigger a publish attempt on its own.
+  useEffect(() => {
+    if (mode !== "edit" || !post) return;
+
+    const interval = setInterval(() => {
+      if (isPending || isAutosaving) return;
+
+      const snapshot = getFormSnapshot();
+      if (snapshot === lastSavedSnapshotRef.current) return;
+
+      startAutosaveTransition(async () => {
+        setAutosaveStatus("saving");
+        const fd = new FormData(formRef.current!);
+        fd.set("status", "draft");
+        const result = await updatePost(post.id, fd);
+        if (result.ok) {
+          lastSavedSnapshotRef.current = snapshot;
+          if (result.resolvedSlug && result.resolvedSlug !== slug) setSlug(result.resolvedSlug);
+          setAutosaveStatus("saved");
+          router.refresh();
+        } else {
+          setAutosaveStatus("error");
+        }
+      });
+    }, AUTOSAVE_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [mode, post, isPending, isAutosaving, slug, router]);
 
   function handleTitleChange(value: string) {
     setTitle(value);
@@ -85,6 +180,16 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
     } finally {
       setIsCoverUploading(false);
     }
+  }
+
+  function handleOpenPreview() {
+    const fd = formRef.current ? new FormData(formRef.current) : null;
+    setPreviewFields({
+      excerpt: String(fd?.get("excerpt") || ""),
+      category: String(fd?.get("category") || CATEGORIES[0].slug),
+      tags: parseTagsClient(String(fd?.get("tags") || "")),
+    });
+    setIsPreviewOpen(true);
   }
 
   const fieldError = (name: string) => state?.fieldErrors?.[name];
@@ -155,7 +260,7 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
         </div>
       )}
 
-      <form action={formAction} className="flex flex-col gap-8">
+      <form ref={formRef} action={formAction} className="flex flex-col gap-8">
       {state?.error && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           {state.error}
@@ -195,6 +300,7 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
               className="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-sm font-mono outline-none focus:border-accent"
             />
             <p className="mt-1 text-xs text-muted">/blog/{slug || "your-post-slug"}</p>
+            {slugNotice && <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{slugNotice}</p>}
             {fieldError("slug") && <p className="mt-1 text-xs text-red-500">{fieldError("slug")}</p>}
           </div>
 
@@ -231,8 +337,19 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
             <h2 className="mb-3 text-sm font-semibold">Publish</h2>
 
             {post && (
-              <p className="mb-3 text-xs text-muted">
+              <p className="mb-1 text-xs text-muted">
                 Currently: <span className="font-medium text-foreground">{STATUS_LABELS[post.status]}</span>
+              </p>
+            )}
+
+            {mode === "edit" && (
+              <p className="mb-3 text-xs text-muted" aria-live="polite">
+                {autosaveStatus === "saving" && "Autosaving…"}
+                {autosaveStatus === "saved" && "All changes saved"}
+                {autosaveStatus === "error" && (
+                  <span className="text-red-500">Autosave failed — your last manual save is still safe</span>
+                )}
+                {autosaveStatus === "idle" && " "}
               </p>
             )}
 
@@ -267,6 +384,14 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
               className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {isPending ? "Saving…" : mode === "create" ? "Create post" : "Save changes"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenPreview}
+              className="mt-2 w-full rounded-md border border-border px-4 py-2.5 text-sm font-medium hover:bg-surface"
+            >
+              Preview
             </button>
 
             {post?.status === "published" && post.publishedBy && post.publishedAt && (
@@ -458,6 +583,19 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
         </div>
       </section>
       </form>
+
+      <PostPreviewModal
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        title={title}
+        excerpt={previewFields.excerpt}
+        category={previewFields.category}
+        coverImage={coverImage}
+        coverImageAlt={coverImageAlt}
+        tags={previewFields.tags}
+        content={content}
+        authorName={post?.author.name || "You"}
+      />
     </>
   );
 }
