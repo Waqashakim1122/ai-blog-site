@@ -112,8 +112,9 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
   }
 
   return (
-    <div className="rounded-md border border-border bg-background">
-      <div className="flex flex-wrap items-center gap-1 border-b border-border p-2">
+    <div className="overflow-hidden rounded-md border border-border bg-background">
+      <div className="max-h-[70vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b border-border bg-background p-2">
         <ToolbarButton
           label="Bold"
           active={editor.isActive("bold")}
@@ -201,13 +202,14 @@ export function TiptapEditor({ content, onChange }: TiptapEditorProps) {
           onChange={handleImageSelected}
         />
         {isUploading && <span className="text-xs text-muted">Uploading…</span>}
+        </div>
+
+        {uploadError && (
+          <p className="border-b border-border px-4 py-2 text-xs text-red-500">{uploadError}</p>
+        )}
+
+        <EditorContent editor={editor} />
       </div>
-
-      {uploadError && (
-        <p className="border-b border-border px-4 py-2 text-xs text-red-500">{uploadError}</p>
-      )}
-
-      <EditorContent editor={editor} />
     </div>
   );
 }

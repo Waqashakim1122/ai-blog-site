@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, PlusCircle, Users, ExternalLink, LogOut } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { SITE_NAME } from "@/lib/constants";
@@ -10,6 +13,7 @@ export function AdminSidebar({
   role: "admin" | "author";
   name: string;
 }) {
+  const pathname = usePathname();
   const links = [
     { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/posts/new", label: "New Post", icon: PlusCircle },
@@ -27,11 +31,17 @@ export function AdminSidebar({
         <nav className="flex flex-col gap-1" aria-label="Admin">
           {links.map((link) => {
             const Icon = link.icon;
+            const active = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-accent/10 text-accent"
+                    : "text-foreground hover:bg-surface"
+                }`}
               >
                 <Icon size={16} />
                 {link.label}

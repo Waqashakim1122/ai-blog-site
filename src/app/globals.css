@@ -44,6 +44,17 @@ body {
   color: var(--accent-foreground);
 }
 
+/* One consistent focus treatment for every link and button, public site
+   and admin alike, instead of leaving keyboard focus to each component's
+   own (often absent) styling. Form fields keep their own focus:border-accent
+   treatment, so this is scoped to a/button only. */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .prose-article {
   color: var(--foreground);
   font-family: var(--font-serif);

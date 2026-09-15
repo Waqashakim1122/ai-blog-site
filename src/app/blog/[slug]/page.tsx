@@ -129,8 +129,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         ]}
       />
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,700px)_1fr] lg:gap-16">
-        <article className="min-w-0 max-w-2xl">
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[220px_minmax(0,700px)] lg:gap-12">
+        <article className="min-w-0 max-w-2xl lg:order-2">
           <header className="mb-6">
             {category && (
               <Link
@@ -188,28 +188,28 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           )}
         </article>
 
-        <aside className="hidden lg:block">
-          <div className="sticky top-24 flex flex-col gap-10">
+        <aside className="hidden lg:order-1 lg:block">
+          <div className="sticky top-24 flex flex-col gap-8">
             <TableOfContents headings={headings} variant="desktop" />
 
             {related.length > 0 && (
               <div>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
                   Related
                 </h2>
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2.5">
                   {related.map((r) => (
-                    <Link key={r.id} href={`/blog/${r.slug}`} className="group flex gap-3">
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-surface">
+                    <Link key={r.id} href={`/blog/${r.slug}`} className="group flex items-center gap-2.5">
+                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-surface">
                         <Image
                           src={r.coverImage}
                           alt={r.coverImageAlt}
                           fill
-                          sizes="64px"
+                          sizes="40px"
                           className="object-cover"
                         />
                       </div>
-                      <p className="text-sm font-medium leading-snug transition-colors group-hover:text-accent">
+                      <p className="line-clamp-2 text-xs font-medium leading-snug text-muted transition-colors group-hover:text-accent">
                         {r.title}
                       </p>
                     </Link>
