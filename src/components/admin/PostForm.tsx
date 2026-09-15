@@ -11,6 +11,7 @@ import { coverImageForSlug } from "@/lib/covers";
 import { evaluateSeoChecklist } from "@/lib/seo-checklist";
 import { formatDate } from "@/lib/format";
 import { ReviewActions } from "@/components/admin/ReviewActions";
+import { SeoChecklistPanel } from "@/components/admin/SeoChecklistPanel";
 import type { AuthorPlain, PostPlain, PostStatus } from "@/types";
 
 const COVER_OPTIONS = Array.from({ length: 15 }, (_, i) => `/images/covers/cover-${i + 1}.svg`);
@@ -35,6 +36,7 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
   const [slug, setSlug] = useState(post?.slug || "");
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [coverImage, setCoverImage] = useState(post?.coverImage || "");
+  const [coverImageAlt, setCoverImageAlt] = useState(post?.coverImageAlt || "");
   const [metaTitle, setMetaTitle] = useState(post?.metaTitle || "");
   const [metaDescription, setMetaDescription] = useState(post?.metaDescription || "");
   const [content, setContent] = useState(post?.content || "");
@@ -73,6 +75,16 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
   }
 
   const fieldError = (name: string) => state?.fieldErrors?.[name];
+
+  // Live checklist, recomputed on every render from the controlled form
+  // state — updates as the author types, before anything is even saved.
+  const liveChecklist = evaluateSeoChecklist({
+    metaTitle,
+    metaDescription,
+    slug,
+    content,
+    coverImageAlt,
+  });
 
   // Failed checklist items for a post currently sitting in pending_review —
   // recomputed live from the saved post rather than stored, so it always
@@ -290,6 +302,8 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
             )}
           </div>
 
+          <SeoChecklistPanel result={liveChecklist} />
+
           <div className="rounded-lg border border-border p-4">
             <h2 className="mb-3 text-sm font-semibold">Category &amp; tags</h2>
 
@@ -381,7 +395,8 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
               id="coverImageAlt"
               name="coverImageAlt"
               required
-              defaultValue={post?.coverImageAlt}
+              value={coverImageAlt}
+              onChange={(e) => setCoverImageAlt(e.target.value)}
               placeholder="Describe the image for screen readers and SEO"
               className="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-accent"
             />
