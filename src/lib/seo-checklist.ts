@@ -1,14 +1,16 @@
+import type { JSONContent } from "@tiptap/core";
 import { SEO_CHECKLIST_CONFIG, meetsSeoPassingThreshold } from "@/lib/seo-checklist.config";
 
-// Pure, isomorphic (no server-only imports) so it can run both in a server
+// Pure, isomorphic (no server-only imports; @tiptap/core is a type-only
+// import here, erased at compile time) so it can run both in a server
 // action (the publish gate) and directly in a client component (the live
-// editor checklist panel, added in Phase 2).
+// editor checklist panel).
 
 export interface SeoChecklistInput {
   metaTitle: string;
   metaDescription: string;
   slug: string;
-  content: string; // markdown
+  content: JSONContent; // Tiptap document JSON
   coverImageAlt: string;
 }
 
@@ -26,23 +28,32 @@ export interface SeoChecklistResult {
   passes: boolean;
 }
 
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
+function extractText(node: JSONContent): string {
+  const own = node.text ?? "";
+  const children = (node.content ?? []).map(extractText).join(" ");
+  return children ? `${own} ${children}` : own;
 }
 
-function hasH2Heading(markdown: string): boolean {
-  return /^##\s+\S/m.test(markdown);
+export function countWords(doc: JSONContent): number {
+  return extractText(doc).trim().split(/\s+/).filter(Boolean).length;
 }
 
-function everyImageHasAlt(markdown: string, coverImageAlt: string): boolean {
+function hasH2Heading(node: JSONContent): boolean {
+  if (node.type === "heading" && node.attrs?.level === 2) return true;
+  return (node.content ?? []).some(hasH2Heading);
+}
+
+function everyImageHasAlt(doc: JSONContent, coverImageAlt: string): boolean {
   if (!coverImageAlt.trim()) return false;
 
-  const imagePattern = /!\[([^\]]*)\]\([^)]*\)/g;
-  let match: RegExpExecArray | null;
-  while ((match = imagePattern.exec(markdown)) !== null) {
-    if (!match[1].trim()) return false;
+  function walk(node: JSONContent): boolean {
+    if (node.type === "image" && !String(node.attrs?.alt ?? "").trim()) {
+      return false;
+    }
+    return (node.content ?? []).every(walk);
   }
-  return true;
+
+  return walk(doc);
 }
 
 export function evaluateSeoChecklist(input: SeoChecklistInput): SeoChecklistResult {

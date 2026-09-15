@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllPublishedSlugs, getPostBySlug, getRelatedPosts } from "@/lib/posts";
-import { markdownToSafeHtml, estimateReadingTime } from "@/lib/markdown";
+import { renderTiptapToSafeHtml, estimateReadingTime } from "@/lib/tiptap";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { JsonLd } from "@/components/JsonLd";
 import { PostGrid } from "@/components/PostGrid";
@@ -60,7 +60,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   if (!post) notFound();
 
   const category = getCategoryBySlug(post.category);
-  const html = markdownToSafeHtml(post.content);
+  const html = renderTiptapToSafeHtml(post.content);
   const readingTime = estimateReadingTime(post.content);
   const related = await getRelatedPosts(post, 3);
   const url = `${SITE_URL}/blog/${post.slug}`;

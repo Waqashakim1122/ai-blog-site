@@ -8,7 +8,9 @@ const PostSchema = new Schema(
     title: { type: String, required: true, trim: true },
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     excerpt: { type: String, required: true, trim: true },
-    content: { type: String, required: true },
+    // Tiptap document JSON (see src/lib/tiptap.ts / tiptap-extensions.ts),
+    // not markdown or HTML.
+    content: { type: Schema.Types.Mixed, required: true },
     coverImage: { type: String, required: true },
     coverImageAlt: { type: String, required: true },
     category: { type: String, required: true, enum: CATEGORY_SLUGS },

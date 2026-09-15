@@ -1,20 +1,24 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import type { JSONContent } from "@tiptap/core";
 import { createPost, updatePost, type ActionResult } from "@/lib/actions/posts";
-import { previewMarkdown } from "@/lib/actions/markdown";
 import { CATEGORIES } from "@/lib/constants";
 import { slugify } from "@/lib/slug";
 import { coverImageForSlug } from "@/lib/covers";
 import { evaluateSeoChecklist } from "@/lib/seo-checklist";
 import { formatDate } from "@/lib/format";
+import { uploadImage } from "@/lib/upload";
 import { ReviewActions } from "@/components/admin/ReviewActions";
 import { SeoChecklistPanel } from "@/components/admin/SeoChecklistPanel";
+import { TiptapEditor } from "@/components/admin/TiptapEditor";
 import type { AuthorPlain, PostPlain, PostStatus } from "@/types";
 
 const COVER_OPTIONS = Array.from({ length: 15 }, (_, i) => `/images/covers/cover-${i + 1}.svg`);
+
+const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
 const STATUS_LABELS: Record<PostStatus, string> = {
   draft: "Draft",
@@ -39,10 +43,10 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
   const [coverImageAlt, setCoverImageAlt] = useState(post?.coverImageAlt || "");
   const [metaTitle, setMetaTitle] = useState(post?.metaTitle || "");
   const [metaDescription, setMetaDescription] = useState(post?.metaDescription || "");
-  const [content, setContent] = useState(post?.content || "");
-  const [tab, setTab] = useState<"write" | "preview">("write");
-  const [previewHtml, setPreviewHtml] = useState("");
-  const [isPreviewPending, startPreviewTransition] = useTransition();
+  const [content, setContent] = useState<JSONContent>(post?.content || EMPTY_DOC);
+  const [isCoverUploading, setIsCoverUploading] = useState(false);
+  const [coverUploadError, setCoverUploadError] = useState("");
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   const action = async (
     _prevState: ActionResult | undefined,
@@ -66,12 +70,21 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
     if (!slugTouched) setSlug(slugify(value));
   }
 
-  function handlePreview() {
-    startPreviewTransition(async () => {
-      const html = await previewMarkdown(content);
-      setPreviewHtml(html);
-      setTab("preview");
-    });
+  async function handleCoverImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setCoverUploadError("");
+    setIsCoverUploading(true);
+    try {
+      const url = await uploadImage(file);
+      setCoverImage(url);
+    } catch (err) {
+      setCoverUploadError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setIsCoverUploading(false);
+    }
   }
 
   const fieldError = (name: string) => state?.fieldErrors?.[name];
@@ -204,48 +217,9 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
           </div>
 
           <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="content" className="block text-sm font-medium">
-                Content (Markdown)
-              </label>
-              <div className="flex overflow-hidden rounded-md border border-border text-xs">
-                <button
-                  type="button"
-                  onClick={() => setTab("write")}
-                  className={`px-3 py-1.5 font-medium ${tab === "write" ? "bg-accent text-accent-foreground" : "hover:bg-surface"}`}
-                >
-                  Write
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePreview}
-                  disabled={isPreviewPending}
-                  className={`px-3 py-1.5 font-medium ${tab === "preview" ? "bg-accent text-accent-foreground" : "hover:bg-surface"}`}
-                >
-                  {isPreviewPending ? "Rendering…" : "Preview"}
-                </button>
-              </div>
-            </div>
-
-            {tab === "write" ? (
-              <textarea
-                id="content"
-                name="content"
-                required
-                rows={20}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3.5 py-2.5 font-mono text-sm outline-none focus:border-accent"
-              />
-            ) : (
-              <>
-                <textarea name="content" value={content} readOnly hidden />
-                <div
-                  className="prose-article max-h-[520px] overflow-y-auto rounded-md border border-border bg-surface px-5 py-4"
-                  dangerouslySetInnerHTML={{ __html: previewHtml }}
-                />
-              </>
-            )}
+            <label className="mb-1.5 block text-sm font-medium">Content</label>
+            <input type="hidden" name="content" value={JSON.stringify(content)} />
+            <TiptapEditor content={content} onChange={setContent} />
             {fieldError("content") && (
               <p className="mt-1 text-xs text-red-500">{fieldError("content")}</p>
             )}
@@ -363,27 +337,33 @@ export function PostForm({ mode, post, authors, currentUser }: PostFormProps) {
         <h2 className="mb-3 text-sm font-semibold">Cover image</h2>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <label htmlFor="coverImage" className="mb-1.5 block text-xs font-medium text-muted">
-              Image URL
-            </label>
-            <div className="mb-3 flex gap-2">
+            <label className="mb-1.5 block text-xs font-medium text-muted">Featured image</label>
+            <input type="hidden" name="coverImage" value={coverImage} />
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => coverFileInputRef.current?.click()}
+                disabled={isCoverUploading}
+                className="rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-surface disabled:opacity-60"
+              >
+                {isCoverUploading ? "Uploading…" : "Upload image"}
+              </button>
               <input
-                id="coverImage"
-                name="coverImage"
-                required
-                value={coverImage}
-                onChange={(e) => setCoverImage(e.target.value)}
-                placeholder="/images/covers/cover-1.svg or https://…"
-                className="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                ref={coverFileInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handleCoverImageSelected}
               />
               <button
                 type="button"
                 onClick={() => setCoverImage(coverImageForSlug(slug || title || "post"))}
                 className="shrink-0 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-surface"
               >
-                Auto-pick
+                Use a generated placeholder instead
               </button>
             </div>
+            {coverUploadError && <p className="mb-3 text-xs text-red-500">{coverUploadError}</p>}
             {fieldError("coverImage") && (
               <p className="mb-3 text-xs text-red-500">{fieldError("coverImage")}</p>
             )}

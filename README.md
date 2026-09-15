@@ -10,7 +10,9 @@ industry news. Built with the App Router, TypeScript, Tailwind CSS, and MongoDB.
 - **Styling:** Tailwind CSS v4, dark mode via `next-themes`
 - **Database:** MongoDB via Mongoose (`Post`, `Author` models)
 - **Auth:** NextAuth v5 (Credentials provider, JWT sessions, `admin` / `author` roles)
-- **Content:** Markdown, rendered server-side and sanitized (`marked` + `sanitize-html`)
+- **Content:** Tiptap rich-text editor, stored as JSON and rendered server-side to sanitized HTML
+  (`@tiptap/html` + `sanitize-html`)
+- **Images:** Vercel Blob (featured image + inline editor images)
 
 ## Getting started
 
@@ -60,13 +62,22 @@ src/
 
 ## Content model
 
-- **Post:** title, slug, excerpt, markdown content, cover image + alt text, category, tags,
-  author reference, meta title/description, status (draft/published), publishedAt.
+- **Post:** title, slug, excerpt, Tiptap JSON content, cover image + alt text, category, tags,
+  author reference, meta title/description, status (`draft` / `pending_review` / `published` /
+  `rejected`), publishedAt/publishedBy (audit trail), reviewNote.
 - **Author:** name, email, hashed password, bio, avatar, role (`admin` or `author`).
 - **Categories:** New Models, Tools, Research, Open Source, Industry News (see
   `src/lib/constants.ts`).
 
 Admins can manage all posts and authors; authors can only create/edit/delete their own posts.
+
+### Editorial workflow
+
+- Admin "Publish" always goes live immediately, no exceptions.
+- Author "Publish" runs the SEO checklist (`src/lib/seo-checklist.ts`, thresholds in
+  `src/lib/seo-checklist.config.ts`) — a passing post publishes immediately, a failing one is
+  routed to `pending_review` with the specific failed checks visible to both the author and any
+  admin, who can then approve or reject (with a required note) from the post editor.
 
 ## SEO
 
@@ -74,8 +85,8 @@ Admins can manage all posts and authors; authors can only create/edit/delete the
 - `Article` JSON-LD on posts, sitewide `Organization`/`WebSite` JSON-LD, `BreadcrumbList` JSON-LD.
 - Auto-generated `/sitemap.xml` and `/robots.txt`; `/ads.txt` is served dynamically from
   `ADSENSE_PUBLISHER_ID` once you have an AdSense account.
-- Cover images use locally generated abstract SVG graphics (no external image dependency); admins
-  can also paste any external HTTPS image URL.
+- Cover images default to locally generated abstract SVG graphics (no external dependency
+  required), or can be uploaded to Vercel Blob from the editor.
 
 ## Before applying to AdSense / going live
 
@@ -92,4 +103,6 @@ Admins can manage all posts and authors; authors can only create/edit/delete the
 
 Deploy to [Vercel](https://vercel.com/new) and set the environment variables from
 `.env.example` in your project settings (`MONGODB_URI`, `AUTH_SECRET`, `NEXTAUTH_URL`,
-`NEXT_PUBLIC_SITE_URL`, and optionally `ADSENSE_PUBLISHER_ID` / `CONTACT_EMAIL_TO`).
+`NEXT_PUBLIC_SITE_URL`, and optionally `ADSENSE_PUBLISHER_ID` / `CONTACT_EMAIL_TO`). Also add a
+**Blob** store from the Storage tab (Vercel injects `BLOB_READ_WRITE_TOKEN` automatically) —
+image uploads in the editor won't work without it.

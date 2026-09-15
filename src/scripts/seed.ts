@@ -9,10 +9,21 @@ for (const file of [".env.local", ".env"]) {
 
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { generateJSON } from "@tiptap/html/server";
 import Author from "@/models/Author";
 import Post from "@/models/Post";
 import { seedPosts } from "./posts-data";
 import { coverImageForSlug } from "@/lib/covers";
+import { markdownToSafeHtml } from "@/lib/markdown";
+import { getTiptapExtensions } from "@/lib/tiptap-extensions";
+
+// The seed articles are written as markdown source (easier to draft by
+// hand); the Post model stores Tiptap document JSON, so convert once here
+// via the same extension set the editor and renderer use, keeping seeded
+// posts fully editable in the Tiptap editor like any other post.
+function markdownToTiptapJson(markdown: string) {
+  return generateJSON(markdownToSafeHtml(markdown), getTiptapExtensions());
+}
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const SEED_PASSWORD = process.env.SEED_PASSWORD || "ChangeMe123!";
@@ -88,7 +99,7 @@ async function main() {
         $set: {
           title: post.title,
           excerpt: post.excerpt,
-          content: post.content,
+          content: markdownToTiptapJson(post.content),
           coverImage: coverImageForSlug(post.slug),
           coverImageAlt: post.coverImageAlt,
           category: post.category,

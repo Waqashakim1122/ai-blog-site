@@ -3,6 +3,9 @@ import sanitizeHtml from "sanitize-html";
 
 marked.setOptions({ gfm: true, breaks: false });
 
+// Only used by the seed script now, to convert the seed articles' markdown
+// source into HTML on the way to Tiptap JSON (see src/scripts/seed.ts). The
+// live editor and post pages use Tiptap JSON directly — see lib/tiptap.ts.
 export function markdownToSafeHtml(markdown: string): string {
   const rawHtml = marked.parse(markdown, { async: false }) as string;
 
@@ -23,13 +26,4 @@ export function markdownToSafeHtml(markdown: string): string {
       a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }),
     },
   });
-}
-
-export function estimateReadingTime(markdown: string): number {
-  const words = markdown.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 225));
-}
-
-export function wordCount(markdown: string): number {
-  return markdown.trim().split(/\s+/).filter(Boolean).length;
 }

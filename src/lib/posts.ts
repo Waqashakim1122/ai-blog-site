@@ -3,6 +3,7 @@ import Post from "@/models/Post";
 import "@/models/Author";
 import type { PostPlain, PostListItem, AuthorPlain, PostStatus } from "@/types";
 import type { Types } from "mongoose";
+import type { JSONContent } from "@tiptap/core";
 
 interface LeanAuthor {
   _id: Types.ObjectId;
@@ -18,7 +19,7 @@ interface LeanPost {
   title: string;
   slug: string;
   excerpt: string;
-  content: string;
+  content: JSONContent;
   coverImage: string;
   coverImageAlt: string;
   category: string;

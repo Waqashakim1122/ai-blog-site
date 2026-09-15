@@ -1,3 +1,5 @@
+import type { JSONContent } from "@tiptap/core";
+
 export interface AuthorPlain {
   id: string;
   name: string;
@@ -14,7 +16,7 @@ export interface PostPlain {
   title: string;
   slug: string;
   excerpt: string;
-  content: string;
+  content: JSONContent;
   coverImage: string;
   coverImageAlt: string;
   category: string;
