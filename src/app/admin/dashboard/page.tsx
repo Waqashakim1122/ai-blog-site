@@ -28,6 +28,35 @@ const STATUS_LABELS: Record<PostStatus, string> = {
   rejected: "Rejected",
 };
 
+function StatCard({
+  label,
+  value,
+  highlighted = false,
+}: {
+  label: string;
+  value: number;
+  highlighted?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        highlighted
+          ? "border-accent bg-accent/5"
+          : "border-border bg-background"
+      }`}
+    >
+      <p
+        className={`text-xs font-semibold uppercase tracking-wide ${
+          highlighted ? "text-accent" : "text-muted"
+        }`}
+      >
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-bold tracking-tight">{value}</p>
+    </div>
+  );
+}
+
 export default async function AdminDashboardPage() {
   const session = await auth();
   const allPosts = await getAllPostsForAdmin();
@@ -35,6 +64,10 @@ export default async function AdminDashboardPage() {
     session?.user.role === "author"
       ? allPosts.filter((p) => p.author.id === session.user.id)
       : allPosts;
+
+  const publishedCount = posts.filter((p) => p.status === "published").length;
+  const draftCount = posts.filter((p) => p.status === "draft").length;
+  const pendingCount = posts.filter((p) => p.status === "pending_review").length;
 
   return (
     <div>
@@ -51,6 +84,17 @@ export default async function AdminDashboardPage() {
         </Link>
       </div>
 
+      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Total posts" value={posts.length} />
+        <StatCard label="Published" value={publishedCount} />
+        <StatCard label="Draft" value={draftCount} />
+        <StatCard
+          label="Pending review"
+          value={pendingCount}
+          highlighted={pendingCount > 0}
+        />
+      </div>
+
       {posts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted">
           No posts yet. Create your first one.
@@ -60,33 +104,38 @@ export default async function AdminDashboardPage() {
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-surface text-left text-xs uppercase tracking-wide text-muted">
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Author</th>
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium text-right">Actions</th>
+                <th className="px-4 py-3.5 font-medium">Title</th>
+                <th className="px-4 py-3.5 font-medium">Status</th>
+                <th className="px-4 py-3.5 font-medium">Category</th>
+                <th className="px-4 py-3.5 font-medium">Author</th>
+                <th className="px-4 py-3.5 font-medium">Date</th>
+                <th className="px-4 py-3.5 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {posts.map((post) => {
                 const category = getCategoryBySlug(post.category);
                 return (
-                  <tr key={post.id} className="border-b border-border last:border-0">
-                    <td className="max-w-[280px] truncate px-4 py-3 font-medium">{post.title}</td>
-                    <td className="px-4 py-3">
+                  <tr
+                    key={post.id}
+                    className="border-b border-border transition-colors last:border-0 hover:bg-surface/60"
+                  >
+                    <td className="max-w-[280px] truncate px-4 py-3.5 font-medium">
+                      {post.title}
+                    </td>
+                    <td className="px-4 py-3.5">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[post.status]}`}
                       >
                         {STATUS_LABELS[post.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted">{category?.name || post.category}</td>
-                    <td className="px-4 py-3 text-muted">{post.author.name}</td>
-                    <td className="px-4 py-3 text-muted">
+                    <td className="px-4 py-3.5 text-muted">{category?.name || post.category}</td>
+                    <td className="px-4 py-3.5 text-muted">{post.author.name}</td>
+                    <td className="px-4 py-3.5 text-muted">
                       {post.publishedAt ? formatDate(post.publishedAt) : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3.5">
                       <div className="flex justify-end gap-3">
                         <Link
                           href={`/admin/posts/${post.id}/edit`}
