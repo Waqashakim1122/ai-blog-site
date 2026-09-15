@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx src/scripts/seed.ts",
-    "fix-malformed-content": "tsx src/scripts/fix-malformed-content.ts"
+    "resync-seed-content": "tsx src/scripts/resync-seed-content.ts"
   },
   "dependencies": {
     "@tiptap/core": "^3.31.3",

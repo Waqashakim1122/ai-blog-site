@@ -85,11 +85,24 @@ export function TiptapContent({ doc }: { doc: JSONContent }) {
         );
 
       case "heading": {
-        const level = node.attrs?.level === 3 ? 3 : 2;
+        const rawLevel = node.attrs?.level;
+        if (rawLevel !== 2 && rawLevel !== 3) {
+          // extractHeadings (lib/headings.ts) only ever adds an entry for
+          // level 2/3 — matching that check here, not just defaulting
+          // anything-not-3 to level 2, is what keeps headingCursor.index in
+          // sync with the headings[] array below. Rendering an off-schema
+          // heading level as if it were real would silently desync every
+          // id assigned after it.
+          return (
+            <p key={key} style={textAlignStyle(node)}>
+              {children()}
+            </p>
+          );
+        }
         const heading = headings[headingCursor.index];
         headingCursor.index += 1;
         const style = textAlignStyle(node);
-        return level === 3 ? (
+        return rawLevel === 3 ? (
           <h3 key={key} id={heading?.id} style={style}>
             {children()}
           </h3>

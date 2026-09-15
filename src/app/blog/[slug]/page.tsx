@@ -118,7 +118,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
       <JsonLd data={articleJsonLd} />
       <Breadcrumbs
         items={[
@@ -129,7 +129,13 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         ]}
       />
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[220px_minmax(0,700px)] lg:gap-12">
+      <div
+        className={`grid grid-cols-1 gap-8 ${
+          related.length > 0
+            ? "lg:grid-cols-[200px_minmax(0,680px)_240px]"
+            : "lg:grid-cols-[220px_minmax(0,700px)]"
+        }`}
+      >
         <article className="min-w-0 max-w-2xl lg:order-2">
           <header className="mb-6">
             {category && (
@@ -189,36 +195,38 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         </article>
 
         <aside className="hidden lg:order-1 lg:block">
-          <div className="sticky top-24 flex flex-col gap-8">
+          <div className="sticky top-24">
             <TableOfContents headings={headings} variant="desktop" />
-
-            {related.length > 0 && (
-              <div>
-                <h2 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                  Related
-                </h2>
-                <div className="flex flex-col gap-2.5">
-                  {related.map((r) => (
-                    <Link key={r.id} href={`/blog/${r.slug}`} className="group flex items-center gap-2.5">
-                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-surface">
-                        <Image
-                          src={r.coverImage}
-                          alt={r.coverImageAlt}
-                          fill
-                          sizes="40px"
-                          className="object-cover"
-                        />
-                      </div>
-                      <p className="line-clamp-2 text-xs font-medium leading-snug text-muted transition-colors group-hover:text-accent">
-                        {r.title}
-                      </p>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </aside>
+
+        {related.length > 0 && (
+          <aside className="hidden lg:order-3 lg:block">
+            <div className="rounded-xl border border-border bg-surface/50 p-5">
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted">
+                Related articles
+              </h2>
+              <div className="flex flex-col gap-5">
+                {related.map((r) => (
+                  <Link key={r.id} href={`/blog/${r.slug}`} className="group block">
+                    <div className="relative mb-2.5 aspect-[1200/630] w-full overflow-hidden rounded-lg bg-surface">
+                      <Image
+                        src={r.coverImage}
+                        alt={r.coverImageAlt}
+                        fill
+                        sizes="220px"
+                        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      />
+                    </div>
+                    <p className="text-sm font-medium leading-snug transition-colors group-hover:text-accent">
+                      {r.title}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );
