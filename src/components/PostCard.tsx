@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import type { PostListItem } from "@/types";
 import { getCategoryBySlug } from "@/lib/constants";
-import { formatDate } from "@/lib/format";
 
 export function PostCard({
   post,
@@ -37,15 +36,6 @@ export function PostCard({
           )}
           <h3 className="text-lg font-semibold leading-snug text-foreground">{post.title}</h3>
           <p className="line-clamp-2 flex-1 text-sm text-muted">{post.excerpt}</p>
-          <div className="mt-2 flex items-center gap-2 text-xs text-muted">
-            <span>{post.author.name}</span>
-            {post.publishedAt && (
-              <>
-                <span aria-hidden="true">·</span>
-                <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
-              </>
-            )}
-          </div>
         </div>
       </Link>
     </article>
